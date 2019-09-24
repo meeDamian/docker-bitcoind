@@ -76,8 +76,13 @@ RUN ./configure LDFLAGS=-L/opt/db4/lib/ CPPFLAGS=-I/opt/db4/include/ \
     --with-utils \
     --with-libs \
     --with-daemon
-RUN make -j$(nproc)
-RUN make -j$(nproc) check
+
+ARG j
+
+RUN echo "Making with j=${j}"
+
+RUN make -j${j}
+RUN make -j${j} check
 RUN make install
 
 RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-cli

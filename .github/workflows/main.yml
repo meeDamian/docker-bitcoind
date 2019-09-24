@@ -1,14 +1,9 @@
-name: Build bitcoind
+name: Check various -j values
 
 on:
   push:
     branches:
-      - master
-
-#on:
-#  push:
-#    tags:
-#      - '*'
+      - determine-j
 
 jobs:
   build:
@@ -20,15 +15,13 @@ jobs:
         arch:
           - arm32v7
           - arm64
-          - amd64
 
-        subver:
-          - '0.16'
-#          - '0.17'
-          - '0.18'
-        qemu:
-          - v3.1.1
-          - v4.1.0
+        j:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
 
     steps:
       - uses: actions/checkout@v1.0.0
@@ -36,8 +29,7 @@ jobs:
       # NOTE: qemu v3.1.1 used instead of currently newest v4.1.0, because v4 is **much** slower for aarch64, see:
       #   https://github.com/meeDamian/docker-berkeleydb/runs/232390723
       - name: Register self-compiled qemu
-        if: matrix.arch != 'amd64'
-        run: docker run --rm --privileged meedamian/simple-qemu:${{matrix.qemu}}-${{matrix.arch}} -p yes
+        run: docker run --rm --privileged meedamian/simple-qemu:v3.1.1-${{matrix.arch}} -p yes
 
         # This step is only run when `qemu` emulation is necessary.  `sed` command here prepares `Dockerfile` so that
         #   emulated architecture is always used instead of host's native one.
@@ -46,17 +38,16 @@ jobs:
         # Second `-e` matches BDB version, and appends "-${{matrix.arch}}" to it.
         #   Note that `&` represents match.
       - name: Change Dockerfile to use arch-specific base images
-        if: matrix.arch != 'amd64'
         run: |
           CPU=${{matrix.arch}}
           if [[ "${CPU}" == "arm64" ]]; then
             CPU="arm64v8"
           fi
 
-          sed -i ${{matrix.subver}}/Dockerfile \
+          sed -i 0.18/Dockerfile \
             -e "s|^FROM alpine|FROM $CPU/alpine|g" \
             -e "s|db-4.8.30.NC|&-${{matrix.arch}}|g"
 
       - name: Build Docker image (quick)
-        run: DOCKER_BUILDKIT=1 docker build ${{matrix.subver}}/
+        run: DOCKER_BUILDKIT=1 docker build --build-arg "j=${{matrix.j}}" 0.18/
 
